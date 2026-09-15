@@ -298,7 +298,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     </div>
     <div class="admin-card">
       <h3>Добавить товар</h3>
-      <label>Эмодзи / URL картинки</label><input type="text" id="aNewEmoji" placeholder="&#128151; или https://...">
+      <label>Изображение товара</label><input type="file" id="aNewFile" accept="image/*" onchange="previewNewImage()">
+      <img id="aNewPreview" class="admin-img-preview" style="display:none;margin-bottom:8px" alt="">
+      <input type="hidden" id="aNewEmoji">
       <label>Название</label><input type="text" id="aNewName" placeholder="Название товара">
       <label>Категория</label>
       <div class="admin-row">
@@ -326,6 +328,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       <h3>Обложка магазина</h3>
       <label>URL изображения обложки</label>
       <input type="text" id="aCoverUrl" placeholder="https://example.com/cover.jpg" onchange="saveCover()">
+      <label>Или загрузить с компьютера</label>
+      <input type="file" id="aCoverFile" accept="image/*" onchange="uploadCover(event)">
       <img class="admin-cover-preview" id="aCoverPreview" style="display:none" alt="">
       <div class="admin-row"><button class="admin-btn" onclick="saveCover()">Сохранить обложку</button></div>
     </div>
@@ -452,7 +456,7 @@ function renderCatalog() {
   el.innerHTML = filtered.map(p => {
     const inCart = cart[p.id] || 0;
     const avail = p.stock - inCart;
-    const isImage = p.emoji && (p.emoji.startsWith('http://') || p.emoji.startsWith('https://'));
+    const isImage = p.emoji && (p.emoji.startsWith('http://') || p.emoji.startsWith('https://') || p.emoji.startsWith('data:'));
     const stockClass = p.stock <= 0 ? 'out' : p.stock <= 3 ? 'low' : '';
     const stockText = p.stock <= 0 ? 'Нет в наличии' : p.stock <= 3 ? 'Осталось ' + p.stock : 'В наличии: ' + p.stock;
     const chars = p.chars ? p.chars.split('\n').filter(Boolean).map(c => '<span>' + escapeHtml(c) + '</span>').join(' ') : '';
@@ -695,6 +699,44 @@ function updateProfileBtn() {
   btn.innerHTML = currentUser ? '&#128100; ' + escapeHtml(currentUser.name) : '&#128100; Войти';
 }
 
+// --- Image upload ---
+function uploadProdImg(event, id) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    editProd(id, 'emoji', e.target.result);
+    renderAdminProducts();
+  };
+  reader.readAsDataURL(file);
+}
+
+function previewNewImage() {
+  const file = document.getElementById('aNewFile').files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = document.getElementById('aNewPreview');
+    img.src = e.target.result;
+    img.style.display = 'block';
+    document.getElementById('aNewEmoji').value = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function uploadCover(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    document.getElementById('aCoverUrl').value = e.target.result;
+    document.getElementById('aCoverPreview').src = e.target.result;
+    document.getElementById('aCoverPreview').style.display = 'block';
+    saveCover();
+  };
+  reader.readAsDataURL(file);
+}
+
 // --- Admin ---
 function openAdminLogin() { document.getElementById('adminOverlay').classList.add('open'); document.getElementById('adminModal').style.display = 'block'; document.getElementById('adminPass').value = ''; document.getElementById('adminPass').focus(); }
 function closeAdminLogin() { document.getElementById('adminOverlay').classList.remove('open'); document.getElementById('adminModal').style.display = 'none'; }
@@ -811,7 +853,9 @@ function renderAdminProducts() {
   el.innerHTML = store.products.map(p => {
     const chars = (p.chars || '').split('\n').filter(Boolean);
     return '<div style="background:#f5f5f7;border-radius:10px;padding:14px;margin-bottom:10px;">' +
-      '<div class="admin-row"><input class="in-sm" value="' + escapeHtml(p.emoji) + '" onchange="editProd(' + p.id + ',\'emoji\',this.value)" placeholder="&#127850;">' +
+      '<div class="admin-row">' +
+      (p.emoji && p.emoji.startsWith('data:') ? '<img src="' + p.emoji + '" style="width:40px;height:40px;border-radius:6px;object-fit:cover;flex:none">' : '<span style="font-size:24px;width:40px;text-align:center">' + p.emoji + '</span>') +
+      '<input type="file" accept="image/*" style="flex:none;font-size:12px;width:auto" onchange="uploadProdImg(event,' + p.id + ')">' +
       '<input style="flex:2" value="' + escapeHtml(p.name) + '" onchange="editProd(' + p.id + ',\'name\',this.value)" placeholder="Название">' +
       '<input class="in-sm" type="number" value="' + p.price + '" onchange="editProd(' + p.id + ',\'price\',this.value)" placeholder="Цена">' +
       '<input class="in-sm" type="number" value="' + (p.stock||0) + '" onchange="editProd(' + p.id + ',\'stock\',this.value)" placeholder="Ост." style="width:60px">' +
