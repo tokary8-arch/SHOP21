@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marketgadget</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f7; color: #1d1d1f; }
+.header { background: #fff; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,.08); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; }
+.header h1 { font-size: 20px; font-weight: 600; }
+.cart-btn { background: #007aff; color: #fff; border: none; padding: 8px 16px; border-radius: 20px; font-size: 14px; cursor: pointer; position: relative; }
+.cart-btn .badge { background: #ff3b30; color: #fff; border-radius: 50%; padding: 1px 6px; font-size: 11px; position: absolute; top: -4px; right: -4px; display: none; }
+.container { max-width: 900px; margin: 0 auto; padding: 20px; }
+.catalog { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+.card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.06); display: flex; flex-direction: column; }
+.card-img { width: 100%; height: 140px; background: #e8e8ed; border-radius: 8px; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; font-size: 40px; }
+.card h3 { font-size: 16px; font-weight: 500; margin-bottom: 4px; }
+.card .price { font-size: 18px; font-weight: 600; color: #007aff; margin-bottom: 12px; }
+.card button { background: #007aff; color: #fff; border: none; padding: 8px; border-radius: 8px; font-size: 14px; cursor: pointer; margin-top: auto; }
+.card button:active { opacity: .8; }
+
+/* Cart */
+.cart-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,.4); z-index: 100; }
+.cart-overlay.open { display: block; }
+.cart-panel { position: fixed; top: 0; right: -100%; width: 100%; max-width: 400px; height: 100%; background: #fff; z-index: 101; transition: right .3s; display: flex; flex-direction: column; }
+.cart-panel.open { right: 0; }
+.cart-header { padding: 20px; border-bottom: 1px solid #e8e8ed; display: flex; justify-content: space-between; align-items: center; }
+.cart-header h2 { font-size: 18px; }
+.cart-close { background: none; border: none; font-size: 24px; cursor: pointer; color: #86868b; }
+.cart-items { flex: 1; overflow-y: auto; padding: 16px 20px; }
+.cart-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f2; }
+.cart-item-info { flex: 1; }
+.cart-item-title { font-size: 14px; font-weight: 500; }
+.cart-item-price { font-size: 13px; color: #86868b; }
+.cart-item-qty { display: flex; align-items: center; gap: 8px; }
+.cart-item-qty button { background: #f0f0f2; border: none; width: 28px; height: 28px; border-radius: 50%; font-size: 16px; cursor: pointer; }
+.cart-item-qty span { min-width: 24px; text-align: center; font-size: 14px; }
+.cart-empty { text-align: center; color: #86868b; padding: 40px 0; }
+.cart-footer { padding: 16px 20px 20px; border-top: 1px solid #e8e8ed; }
+.cart-total { display: flex; justify-content: space-between; font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+.cart-checkout { width: 100%; background: #007aff; color: #fff; border: none; padding: 14px; border-radius: 12px; font-size: 16px; font-weight: 500; cursor: pointer; }
+
+/* Checkout form */
+.checkout-form { display: none; }
+.checkout-form.active { display: block; }
+.cart-items.hidden { display: none; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 13px; color: #86868b; margin-bottom: 4px; }
+.form-group input, .form-group textarea { width: 100%; padding: 10px 12px; border: 1px solid #d2d2d7; border-radius: 8px; font-size: 15px; }
+.form-group textarea { resize: vertical; min-height: 60px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pay-btn { width: 100%; background: #34c759; color: #fff; border: none; padding: 14px; border-radius: 12px; font-size: 16px; font-weight: 500; cursor: pointer; margin-top: 8px; }
+.back-btn { background: none; border: none; color: #007aff; font-size: 14px; cursor: pointer; margin-bottom: 12px; display: block; }
+.cdek-note { background: #eef6ff; border: 1px solid #cfe3ff; border-radius: 8px; padding: 10px 12px; font-size: 13px; color: #1d4e8f; margin-bottom: 14px; line-height: 1.4; }
+.order-confirmed { display: none; text-align: center; padding: 60px 20px; }
+.order-confirmed.active { display: block; }
+.order-confirmed .icon { font-size: 64px; margin-bottom: 16px; }
+.order-confirmed h2 { margin-bottom: 8px; }
+.order-confirmed p { color: #86868b; }
+.cdek-pay-btn { display: inline-block; margin-top: 16px; background: #e4002b; color: #fff; text-decoration: none; padding: 14px 24px; border-radius: 12px; font-size: 16px; font-weight: 500; }
+.cdek-pay-btn:hover { opacity: .9; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1d1d1f; color: #fff; padding: 10px 20px; border-radius: 10px; font-size: 14px; z-index: 200; opacity: 0; transition: opacity .3s; pointer-events: none; }
+.toast.show { opacity: 1; }
+
+/* Chat widget */
+.chat-btn { position: fixed; bottom: 24px; right: 24px; width: 60px; height: 60px; border-radius: 50%; background: #007aff; color: #fff; border: none; font-size: 28px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,.2); z-index: 150; display: flex; align-items: center; justify-content: center; }
+.chat-btn .chat-badge { position: absolute; top: -2px; right: -2px; background: #ff3b30; color: #fff; border-radius: 50%; min-width: 20px; height: 20px; font-size: 12px; display: none; align-items: center; justify-content: center; padding: 0 4px; }
+.chat-window { position: fixed; bottom: 96px; right: 24px; width: 360px; max-width: calc(100vw - 48px); height: 480px; max-height: calc(100vh - 120px); background: #fff; border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,.2); z-index: 151; display: none; flex-direction: column; overflow: hidden; }
+.chat-window.open { display: flex; }
+.chat-header { background: #007aff; color: #fff; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; }
+.chat-header h3 { font-size: 16px; font-weight: 600; }
+.chat-close { background: none; border: none; color: #fff; font-size: 22px; cursor: pointer; }
+.chat-messages { flex: 1; overflow-y: auto; padding: 14px 16px; background: #f5f5f7; display: flex; flex-direction: column; gap: 8px; }
+.chat-msg { max-width: 80%; padding: 9px 12px; border-radius: 14px; font-size: 14px; line-height: 1.35; word-wrap: break-word; }
+.chat-msg.bot { background: #fff; color: #1d1d1f; align-self: flex-start; border-bottom-left-radius: 4px; }
+.chat-msg.user { background: #007aff; color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+.chat-msg .time { display: block; font-size: 10px; opacity: .65; margin-top: 3px; }
+.chat-input-row { display: flex; border-top: 1px solid #e8e8ed; padding: 10px; gap: 8px; background: #fff; }
+.chat-input-row input { flex: 1; border: 1px solid #d2d2d7; border-radius: 20px; padding: 9px 14px; font-size: 14px; outline: none; }
+.chat-input-row input:focus { border-color: #007aff; }
+.chat-send { background: #007aff; color: #fff; border: none; border-radius: 50%; width: 38px; height: 38px; font-size: 18px; cursor: pointer; flex-shrink: 0; }
+
+/* Admin */
+.announcement { background: #eef6ff; border: 1px solid #cfe3ff; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; font-size: 14px; color: #1d4e8f; line-height: 1.45; }
+.admin-gear { background: none; border: none; font-size: 22px; cursor: pointer; color: #86868b; margin-right: 8px; vertical-align: middle; }
+.admin-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 300; }
+.admin-overlay.open { display: block; }
+.admin-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: #fff; border-radius: 16px; padding: 24px; z-index: 301; width: 320px; max-width: calc(100vw - 40px); box-shadow: 0 8px 30px rgba(0,0,0,.2); }
+.admin-modal h3 { margin-bottom: 14px; font-size: 18px; }
+.admin-modal input { width: 100%; padding: 10px 12px; border: 1px solid #d2d2d7; border-radius: 8px; font-size: 15px; margin-bottom: 12px; box-sizing: border-box; }
+.admin-panel { display: none; position: fixed; inset: 0; background: #fff; z-index: 302; overflow-y: auto; padding: 24px; }
+.admin-panel.open { display: block; }
+.admin-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 8px; }
+.admin-head h2 { font-size: 20px; }
+.admin-panel .section { background: #f5f5f7; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.admin-panel .section h3 { font-size: 16px; margin-bottom: 12px; }
+.admin-item { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+.admin-item input { padding: 8px 10px; border: 1px solid #d2d2d7; border-radius: 8px; font-size: 14px; }
+.admin-item .in-emoji { width: 56px; text-align: center; }
+.admin-item .in-name { flex: 1; min-width: 140px; }
+.admin-item .in-price { width: 100px; }
+.admin-btn { background: #007aff; color: #fff; border: none; padding: 8px 14px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+.admin-btn.danger { background: #ff3b30; }
+.admin-btn.green { background: #34c759; }
+.admin-btn.gray { background: #86868b; }
+.admin-textarea { width: 100%; padding: 10px 12px; border: 1px solid #d2d2d7; border-radius: 8px; font-size: 15px; min-height: 80px; resize: vertical; font-family: inherit; box-sizing: border-box; }
+.admin-form-row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.admin-form-row input { padding: 8px 10px; border: 1px solid #d2d2d7; border-radius: 8px; font-size: 14px; }
+.admin-form-row .in-emoji { width: 56px; text-align: center; }
+.admin-form-row .in-name { flex: 1; min-width: 140px; }
+.admin-form-row .in-price { width: 110px; }
+
+@media (max-width: 480px) {
+  .catalog { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .container { padding: 12px; }
+  .cart-panel { max-width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div style="display:flex;align-items:center;">
+    <button class="admin-gear" onclick="openAdminLogin()" title="Вход для администратора">⚙️</button>
+    <h1>Marketgadget</h1>
+  </div>
+  <button class="cart-btn" onclick="openCart()">Корзина <span class="badge" id="cartBadge">0</span></button>
+</div>
+
+<div class="container">
+  <div class="announcement" id="announcement" hidden></div>
+  <div class="catalog" id="catalog"></div>
+</div>
+
+<!-- Cart panel -->
+<div class="cart-overlay" id="cartOverlay" onclick="closeCart()"></div>
+<div class="cart-panel" id="cartPanel">
+  <div class="cart-header">
+    <h2>Корзина</h2>
+    <button class="cart-close" onclick="closeCart()">&times;</button>
+  </div>
+  <div class="cart-items" id="cartItems">
+    <div class="cart-empty">Корзина пуста</div>
+  </div>
+  <div class="checkout-form" id="checkoutForm">
+    <button class="back-btn" onclick="showCartItems()">← Назад в корзину</button>
+    <div class="form-group">
+      <label>ФИО получателя</label>
+      <input type="text" id="checkoutName" placeholder="Иванов Иван Иванович" required>
+    </div>
+    <div class="form-group">
+      <label>Email для чека</label>
+      <input type="email" id="checkoutEmail" placeholder="ivan@example.com" required>
+    </div>
+    <div class="form-group">
+      <label>Телефон</label>
+      <input type="tel" id="checkoutPhone" placeholder="+7 (999) 123-45-67" required>
+    </div>
+    <div class="form-group">
+      <label>Адрес доставки</label>
+      <textarea id="checkoutAddress" placeholder="Город, улица, дом, квартира"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Комментарий к заказу</label>
+      <textarea id="checkoutComment" placeholder="Необязательно"></textarea>
+    </div>
+    <div class="cdek-note">Оплата проходит через сервис «Надёжная сделка» СДЭК: деньги замораживаются до получения посылки. После оформления заказа вы получите ссылку на оплату.</div>
+    <button class="pay-btn" onclick="submitOrder()">Оплатить через СДЭК</button>
+  </div>
+  <div class="cart-footer" id="cartFooter">
+    <div class="cart-total">
+      <span>Итого</span>
+      <span id="cartTotal">0 ₽</span>
+    </div>
+    <button class="cart-checkout" onclick="showCheckoutForm()">Оформить заказ</button>
+  </div>
+</div>
+
+<div class="order-confirmed" id="orderConfirmed">
+  <div class="icon">&#10003;</div>
+  <h2>Заказ оформлен!</h2>
+  <p>Сделка создана в СДЭК. Оплатите товар по ссылке ниже.</p>
+  <p style="margin-top:8px;font-size:13px;color:#86868b;" id="orderId"></p>
+  <a class="cdek-pay-btn" id="cdekPayLink" href="#" target="_blank" rel="noopener">Перейти к оплате через СДЭК</a>
+  <p style="margin-top:12px;font-size:12px;color:#86868b;">Если кнопка не сработала — ссылка на оплату приходит покупателю также по SMS от CDEK.</p>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Chat widget -->
+<div class="chat-window" id="chatWindow">
+  <div class="chat-header">
+    <h3>Marketgadget — чат</h3>
+    <button class="chat-close" onclick="toggleChat()">&times;</button>
+  </div>
+  <div class="chat-messages" id="chatMessages">
+    <div class="chat-msg bot">
+      Здравствуйте! Чем могу помочь? Выберите товары в каталоге или напишите свой вопрос.
+      <span class="time">только что</span>
+    </div>
+  </div>
+  <div class="chat-input-row">
+    <input type="text" id="chatInput" placeholder="Напишите сообщение..." onkeydown="if(event.key==='Enter') sendChat()">
+    <button class="chat-send" onclick="sendChat()">➤</button>
+  </div>
+</div>
+<button class="chat-btn" id="chatBtn" onclick="toggleChat()">
+  💬
+  <span class="chat-badge" id="chatBadge" style="display:none">1</span>
+</button>
+
+<!-- Admin login modal -->
+<div class="admin-overlay" id="adminOverlay" onclick="closeAdminLogin()"></div>
+<div class="admin-modal" id="adminModal">
+  <h3>Вход для администратора</h3>
+  <input type="password" id="adminPass" placeholder="Пароль" onkeydown="if(event.key==='Enter') checkAdminPass()">
+  <button class="admin-btn" style="width:100%" onclick="checkAdminPass()">Войти</button>
+</div>
+
+<!-- Admin panel -->
+<div class="admin-panel" id="adminPanel">
+  <div class="admin-head">
+    <h2>Админ-панель</h2>
+    <div>
+      <button class="admin-btn gray" onclick="closeAdminPanel()">Закрыть</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Название магазина</h3>
+    <div class="admin-form-row">
+      <input type="text" id="aShopName" class="in-name">
+      <button class="admin-btn" onclick="saveShopName()">Сохранить</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Объявление</h3>
+    <textarea class="admin-textarea" id="aAnnouncement" placeholder="Текст объявления (можно пусто)"></textarea>
+    <div class="admin-form-row">
+      <button class="admin-btn" onclick="saveAnnouncement()">Сохранить объявление</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Товары</h3>
+    <div id="adminProducts"></div>
+    <div class="admin-form-row" style="margin-top:12px">
+      <input type="text" id="aNewEmoji" class="in-emoji" placeholder="👕" maxlength="4">
+      <input type="text" id="aNewName" class="in-name" placeholder="Название товара">
+      <input type="number" id="aNewPrice" class="in-price" placeholder="Цена, ₽">
+      <button class="admin-btn green" onclick="addProduct()">Добавить</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Чат с покупателями</h3>
+    <div id="adminChat"></div>
+  </div>
+</div>
+
+<script>
+const ADMIN_PASSWORD = 'marketgadget2026';
+const STORAGE_KEY = 'marketgadgetData';
+const defaultProducts = [
+  { id: 1, name: 'Футболка классическая', price: 1900, emoji: '👕' },
+  { id: 2, name: 'Кепка с логотипом', price: 1200, emoji: '🧢' },
+  { id: 3, name: 'Кружка керамическая', price: 800, emoji: '☕' },
+  { id: 4, name: 'Рюкзак городской', price: 3500, emoji: '🎒' },
+  { id: 5, name: 'Блокнот A5', price: 450, emoji: '📓' },
+  { id: 6, name: 'Пауэрбанк 10000 mAh', price: 2200, emoji: '🔋' },
+];
+
+let store = { shopName: 'Marketgadget', announcement: '', products: defaultProducts };
+let cart = {};
+
+function loadStore() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (saved) {
+      store = { ...store, ...saved };
+      if (!Array.isArray(store.products) || store.products.length === 0) store.products = defaultProducts;
+    }
+  } catch(e) {}
+  document.title = store.shopName;
+  document.getElementById('announcement').textContent = store.announcement;
+  document.getElementById('announcement').hidden = !store.announcement;
+}
+
+function saveStore() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+}
+
+function renderCatalog() {
+  const el = document.getElementById('catalog');
+  if (!store.products.length) {
+    el.innerHTML = '<div style="text-align:center;color:#86868b;padding:40px 0;">Товаров пока нет</div>';
+    return;
+  }
+  el.innerHTML = store.products.map(p => `
+    <div class="card">
+      <div class="card-img">${p.emoji}</div>
+      <h3>${escapeHtml(p.name)}</h3>
+      <div class="price">${formatPrice(p.price)}</div>
+      <button onclick="addToCart(${p.id})">В корзину</button>
+    </div>
+  `).join('');
+}
+
+function formatPrice(p) {
+  return p.toLocaleString('ru-RU') + ' ₽';
+}
+
+function addToCart(id) {
+  cart[id] = (cart[id] || 0) + 1;
+  updateCart();
+  showToast('Товар добавлен в корзину');
+}
+
+function removeFromCart(id) {
+  if (cart[id]) cart[id]--;
+  if (cart[id] <= 0) delete cart[id];
+  updateCart();
+}
+
+function updateCart() {
+  const total = Object.keys(cart).reduce((sum, id) => sum + cart[id] * (store.products.find(p => p.id === +id)?.price || 0), 0);
+  const count = Object.values(cart).reduce((a, b) => a + b, 0);
+
+  document.getElementById('cartTotal').textContent = formatPrice(total);
+  const badge = document.getElementById('cartBadge');
+  if (count > 0) { badge.textContent = count; badge.style.display = 'inline'; }
+  else { badge.style.display = 'none'; }
+
+  renderCartItems();
+  saveCart();
+}
+
+function renderCartItems() {
+  const el = document.getElementById('cartItems');
+  const ids = Object.keys(cart);
+  if (ids.length === 0) {
+    el.innerHTML = '<div class="cart-empty">Корзина пуста</div>';
+    return;
+  }
+  el.innerHTML = ids.map(id => {
+    const p = store.products.find(x => x.id === +id);
+    if (!p) return '';
+    const qty = cart[id];
+    return `
+      <div class="cart-item">
+        <div class="cart-item-info">
+          <div class="cart-item-title">${p.emoji} ${p.name}</div>
+          <div class="cart-item-price">${formatPrice(p.price)} × ${qty} = ${formatPrice(p.price * qty)}</div>
+        </div>
+        <div class="cart-item-qty">
+          <button onclick="removeFromCart(${id})">−</button>
+          <span>${qty}</span>
+          <button onclick="addToCart(${id})">+</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function openCart() {
+  document.getElementById('cartOverlay').classList.add('open');
+  document.getElementById('cartPanel').classList.add('open');
+  showCartItems();
+}
+
+function closeCart() {
+  document.getElementById('cartOverlay').classList.remove('open');
+  document.getElementById('cartPanel').classList.remove('open');
+  document.getElementById('orderConfirmed').classList.remove('active');
+}
+
+function showCheckoutForm() {
+  if (Object.keys(cart).length === 0) { showToast('Корзина пуста'); return; }
+  document.getElementById('cartItems').classList.add('hidden');
+  document.getElementById('cartFooter').style.display = 'none';
+  document.getElementById('checkoutForm').classList.add('active');
+}
+
+function showCartItems() {
+  document.getElementById('cartItems').classList.remove('hidden');
+  document.getElementById('cartFooter').style.display = 'block';
+  document.getElementById('checkoutForm').classList.remove('active');
+  document.getElementById('orderConfirmed').classList.remove('active');
+}
+
+function submitOrder() {
+  const name = document.getElementById('checkoutName').value.trim();
+  const email = document.getElementById('checkoutEmail').value.trim();
+  const phone = document.getElementById('checkoutPhone').value.trim();
+  const address = document.getElementById('checkoutAddress').value.trim();
+  const comment = document.getElementById('checkoutComment').value.trim();
+
+  if (!name || !email || !phone) {
+    showToast('Заполните ФИО, Email и телефон');
+    return;
+  }
+
+  const items = Object.keys(cart).map(id => {
+    const p = store.products.find(x => x.id === +id);
+    if (!p) return null;
+    return { name: p.name, price: p.price, qty: cart[id] };
+  }).filter(Boolean);
+  const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+  const orderId = 'ORD-' + Date.now().toString(36).toUpperCase();
+
+  // Save to localStorage for the seller
+  const order = { id: orderId, date: new Date().toISOString(), name, email, phone, address, comment, items, total };
+  const orders = JSON.parse(localStorage.getItem('shopOrders') || '[]');
+  orders.unshift(order);
+  localStorage.setItem('shopOrders', JSON.stringify(orders));
+
+  // ✅ CDEK «Надёжная сделка»: продавец создаёт сделку в ЛК СДЭК и вставляет сюда её ссылку.
+  // Формат ссылки на оплату сделки покупателем (пример — замените на реальную):
+  // const cdekPayUrl = 'https://my.cdek.ru/m/lkfl/deal/PAY/{номер-сделки}';
+  // Пока ведём на регистрацию продавца (ваша реферальная ссылка) — после создания первой сделки замените.
+  const cdekPayUrl = 'https://my.cdek.ru/m/lkfl/friend/REF-0M92GUWU';
+  document.getElementById('cdekPayLink').href = cdekPayUrl;
+
+  console.log('Order:', order);
+  console.log('СДЭК Надёжная сделка — ссылка на оплату:', cdekPayUrl);
+
+  document.getElementById('cartItems').innerHTML = '';
+  document.getElementById('cartFooter').style.display = 'none';
+  document.getElementById('checkoutForm').classList.remove('active');
+  document.getElementById('orderConfirmed').classList.add('active');
+  document.getElementById('orderId').textContent = 'Номер заказа: ' + orderId;
+
+  cart = {};
+  updateCart();
+  closeCart();
+  // Reopen to show success
+  document.getElementById('orderConfirmed').classList.add('active');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function saveCart() {
+  localStorage.setItem('shopCart', JSON.stringify(cart));
+}
+
+function loadCart() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('shopCart'));
+    if (saved) cart = saved;
+    updateCart();
+  } catch(e) {}
+}
+
+// ---- Chat widget ----
+function toggleChat() {
+  const w = document.getElementById('chatWindow');
+  const open = w.classList.toggle('open');
+  document.getElementById('chatBtn').style.display = open ? 'none' : 'flex';
+  if (open) {
+    document.getElementById('chatBadge').style.display = 'none';
+    document.getElementById('chatInput').focus();
+  }
+}
+
+function sendChat() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+
+  const msgs = document.getElementById('chatMessages');
+  const now = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  msgs.insertAdjacentHTML('beforeend', `<div class="chat-msg user">${escapeHtml(text)}<span class="time">${now}</span></div>`);
+
+  // Store the message locally so the seller can read it (F12 -> Application -> Local Storage -> marketgadgetChat)
+  const history = JSON.parse(localStorage.getItem('marketgadgetChat') || '[]');
+  history.push({ text, time: new Date().toISOString() });
+  localStorage.setItem('marketgadgetChat', JSON.stringify(history));
+
+  // Auto-reply (replace with a real backend or MAX bot later)
+  setTimeout(() => {
+    const replies = [
+      'Спасибо за сообщение! Ответим вам в ближайшее время.',
+      'Принято! Если вопрос по заказу — укажите, пожалуйста, номер заказа.',
+      'Спасибо! Администратор ответит в течение рабочего дня.'
+    ];
+    const reply = replies[Math.floor(Math.random() * replies.length)];
+    msgs.insertAdjacentHTML('beforeend', `<div class="chat-msg bot">${reply}<span class="time">${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span></div>`);
+    msgs.scrollTop = msgs.scrollHeight;
+  }, 600);
+
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+loadStore();
+renderCatalog();
+loadCart();
+
+// ---- Admin panel ----
+function openAdminLogin() {
+  document.getElementById('adminOverlay').classList.add('open');
+  document.getElementById('adminModal').style.display = 'block';
+  document.getElementById('adminPass').value = '';
+  document.getElementById('adminPass').focus();
+}
+
+function closeAdminLogin() {
+  document.getElementById('adminOverlay').classList.remove('open');
+  document.getElementById('adminModal').style.display = 'none';
+}
+
+function checkAdminPass() {
+  const pass = document.getElementById('adminPass').value;
+  if (pass === ADMIN_PASSWORD) {
+    closeAdminLogin();
+    openAdminPanel();
+  } else {
+    showToast('Неверный пароль');
+  }
+}
+
+function openAdminPanel() {
+  document.getElementById('adminPanel').classList.add('open');
+  document.getElementById('aShopName').value = store.shopName;
+  document.getElementById('aAnnouncement').value = store.announcement;
+  renderAdminProducts();
+  renderAdminChat();
+}
+
+function closeAdminPanel() {
+  document.getElementById('adminPanel').classList.remove('open');
+  renderCatalog();
+}
+
+function saveShopName() {
+  const v = document.getElementById('aShopName').value.trim();
+  if (!v) { showToast('Название не может быть пустым'); return; }
+  store.shopName = v;
+  saveStore();
+  document.title = v;
+  document.querySelector('.header h1').textContent = v;
+  showToast('Название сохранено');
+}
+
+function saveAnnouncement() {
+  store.announcement = document.getElementById('aAnnouncement').value.trim();
+  saveStore();
+  document.getElementById('announcement').textContent = store.announcement;
+  document.getElementById('announcement').hidden = !store.announcement;
+  showToast('Объявление сохранено');
+}
+
+function renderAdminProducts() {
+  const el = document.getElementById('adminProducts');
+  if (!store.products.length) {
+    el.innerHTML = '<div style="color:#86868b;margin:8px 0;">Товаров нет — добавьте ниже</div>';
+    return;
+  }
+  el.innerHTML = store.products.map(p => `
+    <div class="admin-item" data-id="${p.id}">
+      <input class="in-emoji" value="${p.emoji}" onchange="editProductField(${p.id}, 'emoji', this.value)">
+      <input class="in-name" value="${escapeHtml(p.name)}" onchange="editProductField(${p.id}, 'name', this.value)">
+      <input class="in-price" type="number" value="${p.price}" onchange="editProductField(${p.id}, 'price', this.value)">
+      <button class="admin-btn danger" onclick="deleteProduct(${p.id})">Удалить</button>
+    </div>
+  `).join('');
+}
+
+function editProductField(id, field, value) {
+  const p = store.products.find(x => x.id === id);
+  if (!p) return;
+  if (field === 'price') {
+    const n = parseFloat(value);
+    p.price = isNaN(n) || n < 0 ? 0 : n;
+  } else {
+    p[field] = value.trim();
+  }
+  saveStore();
+  renderCatalog();
+  showToast('Сохранено');
+}
+
+function deleteProduct(id) {
+  store.products = store.products.filter(x => x.id !== id);
+  saveStore();
+  renderAdminProducts();
+  renderCatalog();
+  showToast('Товар удалён');
+}
+
+function addProduct() {
+  const emoji = document.getElementById('aNewEmoji').value.trim() || '🛍️';
+  const name = document.getElementById('aNewName').value.trim();
+  const price = parseFloat(document.getElementById('aNewPrice').value);
+  if (!name) { showToast('Введите название товара'); return; }
+
+  const newId = store.products.length ? Math.max(...store.products.map(p => p.id)) + 1 : 1;
+  store.products.push({ id: newId, name, price: isNaN(price) || price < 0 ? 0 : price, emoji });
+  saveStore();
+
+  document.getElementById('aNewEmoji').value = '';
+  document.getElementById('aNewName').value = '';
+  document.getElementById('aNewPrice').value = '';
+  renderAdminProducts();
+  renderCatalog();
+  showToast('Товар добавлен');
+}
+
+function renderAdminChat() {
+  const el = document.getElementById('adminChat');
+  const history = JSON.parse(localStorage.getItem('marketgadgetChat') || '[]');
+  if (!history.length) {
+    el.innerHTML = '<div style="color:#86868b;">Сообщений пока нет</div>';
+    return;
+  }
+  el.innerHTML = history.map(m => `
+    <div style="background:#fff;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:14px;">
+      <div>${escapeHtml(m.text)}</div>
+      <div style="font-size:12px;color:#86868b;">${new Date(m.time).toLocaleString('ru-RU')}</div>
+    </div>
+  `).join('') + '<div class="admin-form-row" style="margin-top:10px"><button class="admin-btn danger" onclick="clearChat()">Очистить историю</button></div>';
+}
+
+function clearChat() {
+  if (!confirm('Удалить все сообщения чата?')) return;
+  localStorage.removeItem('marketgadgetChat');
+  renderAdminChat();
+  showToast('История чата очищена');
+}
+</script>
+</body>
+</html>
