@@ -32,6 +32,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .announcement.hidden { display: none; }
 
 /* Catalog */
+.cat-filter { display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px; flex-wrap: wrap; }
+.cat-filter .cat-pill { background: #fff; border: 1px solid #d2d2d7; padding: 6px 16px; border-radius: 20px; font-size: 14px; cursor: pointer; white-space: nowrap; transition: all .15s; }
+.cat-filter .cat-pill:hover { border-color: #007aff; }
+.cat-filter .cat-pill.active { background: #007aff; color: #fff; border-color: #007aff; }
 .catalog { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
 
 /* Product Card */
@@ -196,6 +200,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 <div class="container">
   <div id="announcement" class="announcement hidden"></div>
   <div id="customText" class="announcement hidden"></div>
+  <div class="cat-filter" id="catFilter"></div>
   <div class="catalog" id="catalog"></div>
 </div>
 
@@ -295,6 +300,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       <h3>Добавить товар</h3>
       <label>Эмодзи / URL картинки</label><input type="text" id="aNewEmoji" placeholder="&#128151; или https://...">
       <label>Название</label><input type="text" id="aNewName" placeholder="Название товара">
+      <label>Категория</label>
+      <div class="admin-row">
+        <select id="aNewCat" style="flex:1;padding:9px 12px;border:1px solid #d2d2d7;border-radius:8px;font-size:14px;background:#fff"></select>
+        <input type="text" id="aNewCatCustom" placeholder="Или новая категория" style="flex:1">
+      </div>
       <label>Цена, &#8381;</label><input type="number" id="aNewPrice" placeholder="1900">
       <label>Количество на складе</label><input type="number" id="aNewStock" value="10">
       <label>Описание</label><textarea id="aNewDesc" placeholder="Краткое описание товара"></textarea>
@@ -318,6 +328,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       <input type="text" id="aCoverUrl" placeholder="https://example.com/cover.jpg" onchange="saveCover()">
       <img class="admin-cover-preview" id="aCoverPreview" style="display:none" alt="">
       <div class="admin-row"><button class="admin-btn" onclick="saveCover()">Сохранить обложку</button></div>
+    </div>
+    <div class="admin-card">
+      <h3>Категории товаров</h3>
+      <div id="adminCatList"></div>
+      <div class="admin-row" style="margin-top:8px">
+        <input type="text" id="aNewCatName" placeholder="Новая категория" style="flex:1">
+        <button class="admin-btn green" onclick="addCategory()">Добавить</button>
+      </div>
     </div>
     <div class="admin-card">
       <h3>Объявление</h3>
@@ -371,16 +389,18 @@ let store = {
   customText: '',
   coverUrl: '',
   sdekUrl: 'https://my.cdek.ru/m/lkfl/friend/REF-0M92GUWU',
+  categories: ['Одежда', 'Аксессуары', 'Для дома'],
   products: [
-    { id:1, emoji:'&#128085;', name:'Футболка классическая', price:1900, stock:10, desc:'Удобная хлопковая футболка', chars:'Цвет: белый\nСостав: 100% хлопок', video:'' },
-    { id:2, emoji:'&#129505;', name:'Кепка с логотипом', price:1200, stock:5, desc:'Стильная кепка', chars:'Цвет: красный\nРазмер: регулируемый', video:'' },
-    { id:3, emoji:'&#9749;', name:'Кружка керамическая', price:800, stock:15, desc:'Керамическая кружка 300 мл', chars:'Объём: 300 мл\nМатериал: керамика', video:'' },
-    { id:4, emoji:'&#127890;', name:'Рюкзак городской', price:3500, stock:3, desc:'Рюкзак 25л', chars:'Объём: 25 л\nЦвет: чёрный', video:'' }
+    { id:1, emoji:'&#128085;', name:'Футболка классическая', price:1900, stock:10, desc:'Удобная хлопковая футболка', chars:'Цвет: белый\nСостав: 100% хлопок', video:'', category:'Одежда' },
+    { id:2, emoji:'&#129505;', name:'Кепка с логотипом', price:1200, stock:5, desc:'Стильная кепка', chars:'Цвет: красный\nРазмер: регулируемый', video:'', category:'Одежда' },
+    { id:3, emoji:'&#9749;', name:'Кружка керамическая', price:800, stock:15, desc:'Керамическая кружка 300 мл', chars:'Объём: 300 мл\nМатериал: керамика', video:'', category:'Для дома' },
+    { id:4, emoji:'&#127890;', name:'Рюкзак городской', price:3500, stock:3, desc:'Рюкзак 25л', chars:'Объём: 25 л\nЦвет: чёрный', video:'', category:'Аксессуары' }
   ]
 };
 
 let cart = {};
 let currentUser = null;
+let currentCategory = 'all';
 
 // --- Load / Save ---
 function loadStore() {
@@ -403,14 +423,33 @@ function applyStore() {
   const coverImg = document.getElementById('coverImage');
   const coverPh = document.getElementById('coverPlaceholder');
   if (store.coverUrl) { coverImg.src = store.coverUrl; coverImg.style.display = 'block'; coverPh.style.display = 'none'; } else { coverImg.style.display = 'none'; coverPh.style.display = 'flex'; }
+renderCategories();
   renderCatalog();
 }
 
 // --- Catalog ---
+function renderCategories() {
+  const el = document.getElementById('catFilter');
+  const cats = store.categories || [];
+  let html = '<div class="cat-pill' + (currentCategory === 'all' ? ' active' : '') + '" onclick="setCategory(\'all\')">Все</div>';
+  cats.forEach(c => {
+    html += '<div class="cat-pill' + (c === currentCategory ? ' active' : '') + '" onclick="setCategory(\'' + escapeHtml(c) + '\')">' + escapeHtml(c) + '</div>';
+  });
+  el.innerHTML = html;
+}
+
+function setCategory(cat) {
+  currentCategory = cat;
+  renderCategories();
+  renderCatalog();
+}
+
 function renderCatalog() {
   const el = document.getElementById('catalog');
-  if (!store.products.length) { el.innerHTML = '<div style="text-align:center;color:#86868b;padding:40px">Товаров пока нет</div>'; return; }
-  el.innerHTML = store.products.map(p => {
+  let filtered = store.products;
+  if (currentCategory !== 'all') filtered = filtered.filter(p => p.category === currentCategory);
+  if (!filtered.length) { el.innerHTML = '<div style="text-align:center;color:#86868b;padding:40px">Товаров пока нет</div>'; return; }
+  el.innerHTML = filtered.map(p => {
     const inCart = cart[p.id] || 0;
     const avail = p.stock - inCart;
     const isImage = p.emoji && (p.emoji.startsWith('http://') || p.emoji.startsWith('https://'));
@@ -672,6 +711,8 @@ function openAdminPanel() {
   document.getElementById('aCoverUrl').value = store.coverUrl;
   document.getElementById('aSdekUrl').value = store.sdekUrl || '';
   if (store.coverUrl) { document.getElementById('aCoverPreview').src = store.coverUrl; document.getElementById('aCoverPreview').style.display = 'block'; } else { document.getElementById('aCoverPreview').style.display = 'none'; }
+  renderAdminCatDropdown();
+  renderAdminCategories();
   renderAdminProducts();
   renderAdminOrders();
   renderAdminCustomers();
@@ -720,6 +761,50 @@ function saveSdekUrl() {
 }
 
 // --- Admin: Products ---
+function renderAdminCatDropdown() {
+  const sel = document.getElementById('aNewCat');
+  if (!sel) return;
+  sel.innerHTML = (store.categories || []).map(c => '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>').join('');
+}
+
+function renderAdminCategories() {
+  const el = document.getElementById('adminCatList');
+  const cats = store.categories || [];
+  if (!cats.length) { el.innerHTML = '<div style="color:#86868b">Нет категорий</div>'; return; }
+  el.innerHTML = cats.map((c, i) => '<div class="admin-char-item"><input value="' + escapeHtml(c) + '" onchange="editCategory(' + i + ',this.value)"><button onclick="removeCategory(' + i + ')">&#10005;</button></div>').join('');
+}
+
+function editCategory(idx, val) {
+  if (!store.categories) store.categories = [];
+  store.categories[idx] = val.trim();
+  saveStore();
+  renderCategories();
+  renderAdminCatDropdown();
+}
+function removeCategory(idx) {
+  if (!store.categories) store.categories = [];
+  const cat = store.categories[idx];
+  store.categories.splice(idx, 1);
+  store.products.forEach(p => { if (p.category === cat) p.category = ''; });
+  saveStore();
+  renderAdminCategories();
+  renderAdminCatDropdown();
+  renderAdminProducts();
+  renderCategories();
+  renderCatalog();
+}
+function addCategory() {
+  const v = document.getElementById('aNewCatName').value.trim();
+  if (!v) { showToast('Введите название категории'); return; }
+  if (!store.categories) store.categories = [];
+  store.categories.push(v);
+  saveStore();
+  document.getElementById('aNewCatName').value = '';
+  renderAdminCategories();
+  renderAdminCatDropdown();
+  renderCategories();
+  showToast('Категория добавлена');
+}
 function renderAdminProducts() {
   const el = document.getElementById('adminProductList');
   if (!store.products.length) { el.innerHTML = '<div style="color:#86868b">Товаров нет</div>'; return; }
@@ -732,7 +817,8 @@ function renderAdminProducts() {
       '<input class="in-sm" type="number" value="' + (p.stock||0) + '" onchange="editProd(' + p.id + ',\'stock\',this.value)" placeholder="Ост." style="width:60px">' +
       '<button class="admin-btn danger" onclick="deleteProduct(' + p.id + ')">&#10005;</button></div>' +
       '<div class="admin-row" style="margin-top:4px"><input style="flex:1" value="' + escapeHtml(p.desc||'') + '" onchange="editProd(' + p.id + ',\'desc\',this.value)" placeholder="Описание"></div>' +
-      '<div class="admin-row" style="margin-top:4px"><input style="flex:1" value="' + escapeHtml(p.video||'') + '" onchange="editProd(' + p.id + ',\'video\',this.value)" placeholder="Ссылка на видео"></div>' +
+      '<div class="admin-row" style="margin-top:4px"><input style="flex:1" value="' + escapeHtml(p.video||'') + '" onchange="editProd(' + p.id + ',\'video\',this.value)" placeholder="Ссылка на видео">' +
+      '<input style="flex:1" value="' + escapeHtml(p.category||'') + '" onchange="editProd(' + p.id + ',\'category\',this.value)" placeholder="Категория"></div>' +
       '<div class="admin-chars-list" id="chars-' + p.id + '">' +
         chars.map((c,i) => '<div class="admin-char-item"><input value="' + escapeHtml(c) + '" onchange="editChar(' + p.id + ',' + i + ',this.value)"><button onclick="removeChar(' + p.id + ',' + i + ')">&#10005;</button></div>').join('') +
       '</div>' +
@@ -779,14 +865,20 @@ function addProduct() {
   const emoji = document.getElementById('aNewEmoji').value.trim() || '&#128230;';
   const name = document.getElementById('aNewName').value.trim();
   if (!name) { showToast('Введите название'); return; }
+  const catCustom = document.getElementById('aNewCatCustom').value.trim();
+  const category = catCustom || document.getElementById('aNewCat').value;
+  if (catCustom && !(store.categories||[]).includes(catCustom)) {
+    store.categories = store.categories || [];
+    store.categories.push(catCustom);
+  }
   const price = parseFloat(document.getElementById('aNewPrice').value);
   const stock = parseInt(document.getElementById('aNewStock').value) || 0;
   const newId = store.products.length ? Math.max(...store.products.map(p => p.id)) + 1 : 1;
-  store.products.push({ id:newId, emoji, name, price:isNaN(price)?0:price, stock, desc:document.getElementById('aNewDesc').value.trim(), chars:document.getElementById('aNewChars').value.trim(), video:document.getElementById('aNewVideo').value.trim() });
+  store.products.push({ id:newId, emoji, name, category, price:isNaN(price)?0:price, stock, desc:document.getElementById('aNewDesc').value.trim(), chars:document.getElementById('aNewChars').value.trim(), video:document.getElementById('aNewVideo').value.trim() });
   saveStore();
-  ['aNewEmoji','aNewName','aNewPrice','aNewDesc','aNewChars','aNewVideo'].forEach(id => document.getElementById(id).value = '');
+  ['aNewEmoji','aNewName','aNewPrice','aNewDesc','aNewChars','aNewVideo','aNewCatCustom'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('aNewStock').value = '10';
-  renderAdminProducts(); renderCatalog();
+  renderAdminProducts(); renderAdminCatDropdown(); renderAdminCategories(); renderCategories(); renderCatalog();
   showToast('Товар добавлен');
 }
 
