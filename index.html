@@ -541,7 +541,9 @@ function renderCartItems() {
     const p = store.products.find(x => x.id === +id);
     if (!p) return '';
     const q = cart[id];
-    return '<div class="cart-item"><div class="cart-item-info"><div class="cart-item-title">' + p.emoji + ' ' + escapeHtml(p.name) + '</div><div class="cart-item-price">' + formatPrice(p.price) + ' &#215; ' + q + ' = ' + formatPrice(p.price * q) + '</div></div><div class="cart-item-qty"><button onclick="removeFromCart(' + id + ')">&#8722;</button><span>' + q + '</span><button onclick="addToCart(' + id + ')">+</button></div></div>';
+    const isImage = p.emoji && (p.emoji.startsWith('http://') || p.emoji.startsWith('https://') || p.emoji.startsWith('data:'));
+    const thumb = isImage ? '<img src="' + p.emoji + '" style="width:32px;height:32px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:6px">' : p.emoji;
+    return '<div class="cart-item"><div class="cart-item-info"><div class="cart-item-title">' + thumb + ' ' + escapeHtml(p.name) + '</div><div class="cart-item-price">' + formatPrice(p.price) + ' &#215; ' + q + ' = ' + formatPrice(p.price * q) + '</div></div><div class="cart-item-qty"><button onclick="removeFromCart(' + id + ')">&#8722;</button><span>' + q + '</span><button onclick="addToCart(' + id + ')">+</button></div></div>';
   }).join('');
 }
 
