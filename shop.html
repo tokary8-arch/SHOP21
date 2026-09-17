@@ -309,8 +309,34 @@ function submitOrder() {
   const total = items.reduce((s,i) => s + i.price * i.qty, 0);
   const orderId = 'ORD-' + Date.now().toString(36).toUpperCase();
   const order = { id:orderId, date:new Date().toISOString(), name, email, phone, address:document.getElementById('coAddress').value.trim(), comment:document.getElementById('coComment').value.trim(), items, total, user: currentUser?.email || email };
-  const orders = JSON.parse(localStorage.getItem('mgOrders') || '[]'); orders.unshift(order); localStorage.setItem('mgOrders', JSON.stringify(orders));
-  if (currentUser) { currentUser.orders = currentUser.orders || []; currentUser.orders.unshift(orderId); localStorage.setItem('mgUser', JSON.stringify(currentUser)); }
+
+  // Auto-register if not logged in
+  if (!currentUser) {
+    const users = JSON.parse(localStorage.getItem('mgUsers') || '[]');
+    const existing = users.find(u => u.email === email);
+    if (existing) {
+      // Existing customer — log them in
+      existing.orders = existing.orders || [];
+      existing.orders.unshift(orderId);
+      currentUser = existing;
+      localStorage.setItem('mgUser', JSON.stringify(existing));
+    } else {
+      // New customer — register automatically (no password needed for guest checkout)
+      const newUser = { name, email, phone, pass: '', address: document.getElementById('coAddress').value.trim(), orders: [orderId], regDate: new Date().toISOString() };
+      users.push(newUser);
+      localStorage.setItem('mgUsers', JSON.stringify(users));
+      currentUser = newUser;
+      localStorage.setItem('mgUser', JSON.stringify(newUser));
+    }
+    updateProfileBtn();
+  } else {
+    currentUser.orders = currentUser.orders || [];
+    currentUser.orders.unshift(orderId);
+    localStorage.setItem('mgUser', JSON.stringify(currentUser));
+    const users = JSON.parse(localStorage.getItem('mgUsers') || '[]');
+    const idx = users.findIndex(u => u.email === currentUser.email);
+    if (idx >= 0) { users[idx].orders = currentUser.orders; localStorage.setItem('mgUsers', JSON.stringify(users)); }
+  }
   document.getElementById('cdekPayLink').href = store.sdekUrl || 'https://my.cdek.ru/m/lkfl/friend/REF-0M92GUWU';
   document.getElementById('orderId').textContent = 'Номер заказа: ' + orderId;
   document.getElementById('cartItems').innerHTML = ''; document.getElementById('cartFooter').style.display = 'none'; document.getElementById('checkoutForm').classList.remove('active'); document.getElementById('orderConfirmed').classList.add('active');
