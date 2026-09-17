@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marketgadget — Админ</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f7; color: #1d1d1f; }
+.admin-panel { display: block; min-height: 100vh; padding: 20px; }
+.admin-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.admin-head h1 { font-size: 22px; }
+.admin-tabs { display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 4px; }
+.admin-tab { background: #fff; border: 1px solid #d2d2d7; padding: 8px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; white-space: nowrap; }
+.admin-tab.active { background: #007aff; color: #fff; border-color: #007aff; }
+.admin-section { display: none; }
+.admin-section.active { display: block; }
+.admin-card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.admin-card h3 { font-size: 16px; margin-bottom: 12px; }
+.admin-card label { display: block; font-size: 13px; color: #86868b; margin-bottom: 4px; margin-top: 10px; }
+.admin-card label:first-child { margin-top: 0; }
+.admin-card input, .admin-card textarea { width: 100%; padding: 9px 12px; border: 1px solid #d2d2d7; border-radius: 8px; font-size: 14px; font-family: inherit; box-sizing: border-box; }
+.admin-card textarea { min-height: 60px; resize: vertical; }
+.admin-card textarea.rich { min-height: 90px; }
+.admin-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+.admin-row input { width: auto; flex: 1; min-width: 60px; }
+.admin-row .in-sm { width: 70px; flex: none; text-align: center; }
+.admin-btn { background: #007aff; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+.admin-btn.danger { background: #ff3b30; }
+.admin-btn.green { background: #34c759; }
+.admin-btn.gray { background: #86868b; }
+.admin-btn.outline { background: none; border: 1px solid #d2d2d7; color: #1d1d1f; }
+.admin-char-item { display: flex; gap: 6px; margin-bottom: 4px; align-items: center; }
+.admin-char-item input { flex: 1; padding: 6px 8px; border: 1px solid #d2d2d7; border-radius: 6px; font-size: 13px; }
+.admin-char-item button { background: #ff3b30; color: #fff; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 14px; cursor: pointer; }
+.admin-img-preview { max-width: 120px; max-height: 80px; border-radius: 6px; margin-top: 6px; object-fit: cover; }
+.admin-cover-preview { width: 100%; max-height: 120px; object-fit: cover; border-radius: 8px; margin-top: 6px; }
+
+/* Login */
+.login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #f5f5f7; }
+.login-box { background: #fff; border-radius: 16px; padding: 32px; width: 320px; max-width: calc(100vw - 40px); box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+.login-box h1 { font-size: 22px; margin-bottom: 8px; }
+.login-box p { font-size: 14px; color: #86868b; margin-bottom: 20px; }
+.login-box input { width: 100%; padding: 10px 14px; border: 1px solid #d2d2d7; border-radius: 8px; font-size: 15px; margin-bottom: 12px; box-sizing: border-box; }
+.login-box input:focus { border-color: #007aff; outline: none; }
+.login-box button { width: 100%; background: #007aff; color: #fff; border: none; padding: 12px; border-radius: 8px; font-size: 15px; cursor: pointer; }
+.login-box .error { color: #ff3b30; font-size: 13px; margin-top: 8px; display: none; }
+
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1d1d1f; color: #fff; padding: 10px 20px; border-radius: 10px; font-size: 14px; z-index: 200; opacity: 0; transition: opacity .3s; pointer-events: none; }
+.toast.show { opacity: 1; }
+
+@media (max-width: 480px) { .admin-panel { padding: 12px; } }
+</style>
+</head>
+<body>
+
+<div class="login-page" id="loginPage">
+  <div class="login-box">
+    <h1>Marketgadget</h1>
+    <p>Вход для администратора</p>
+    <input type="password" id="sellerPass" placeholder="Пароль" onkeydown="if(event.key==='Enter') checkPass()">
+    <button onclick="checkPass()">Войти</button>
+    <div class="error" id="loginError">Неверный пароль</div>
+  </div>
+</div>
+
+<div class="admin-panel" id="adminPanel" style="display:none">
+  <div class="admin-head">
+    <h1>Админ-панель</h1>
+    <div>
+      <a href="/" class="admin-btn gray" style="margin-right:8px;text-decoration:none;display:inline-block">На сайт</a>
+      <button class="admin-btn danger" onclick="logout()">Выйти</button>
+    </div>
+  </div>
+
+  <div class="admin-tabs">
+    <div class="admin-tab active" data-tab="tabProducts" onclick="switchTab('tabProducts',this)">Товары</div>
+    <div class="admin-tab" data-tab="tabShop" onclick="switchTab('tabShop',this)">Магазин</div>
+    <div class="admin-tab" data-tab="tabOrders" onclick="switchTab('tabOrders',this)">Заказы</div>
+    <div class="admin-tab" data-tab="tabCustomers" onclick="switchTab('tabCustomers',this)">Клиенты</div>
+    <div class="admin-tab" data-tab="tabChat" onclick="switchTab('tabChat',this)">Чат</div>
+    <div class="admin-tab" data-tab="tabBackup" onclick="switchTab('tabBackup',this)">Бэкап</div>
+  </div>
+
+  <div class="admin-section active" id="tabProducts">
+    <div class="admin-card">
+      <h3>Редактировать товары</h3>
+      <div id="adminProductList"></div>
+    </div>
+    <div class="admin-card">
+      <h3>Добавить товар</h3>
+      <label>Изображение</label><input type="file" accept="image/*" onchange="previewNew(event)"><img id="aNewPreview" class="admin-img-preview" style="display:none;margin-bottom:8px" alt=""><input type="hidden" id="aNewEmoji">
+      <label>Название</label><input type="text" id="aNewName" placeholder="Название">
+      <label>Категория</label>
+      <div class="admin-row"><select id="aNewCat" style="flex:1;padding:9px 12px;border:1px solid #d2d2d7;border-radius:8px;font-size:14px;background:#fff"></select><input type="text" id="aNewCatCustom" placeholder="Новая категория" style="flex:1"></div>
+      <label>Цена, &#8381;</label><input type="number" id="aNewPrice" placeholder="1900">
+      <label>Количество</label><input type="number" id="aNewStock" value="10">
+      <label>Описание</label><textarea id="aNewDesc" placeholder="Описание"></textarea>
+      <label>Характеристики (ключ: значение, строка за строкой)</label><textarea id="aNewChars" placeholder="Цвет: синий" style="min-height:60px"></textarea>
+      <label>Ссылка на видео</label><input type="text" id="aNewVideo" placeholder="https://youtube.com/...">
+      <div class="admin-row" style="margin-top:12px"><button class="admin-btn green" onclick="addProduct()">Добавить товар</button></div>
+    </div>
+  </div>
+
+  <div class="admin-section" id="tabShop">
+    <div class="admin-card">
+      <h3>Название магазина</h3>
+      <input type="text" id="aShopName" onchange="saveShopName()">
+    </div>
+    <div class="admin-card">
+      <h3>Обложка магазина</h3>
+      <label>URL изображения</label><input type="text" id="aCoverUrl" onchange="saveCover()">
+      <label>Загрузить с компьютера</label><input type="file" accept="image/*" onchange="uploadCover(event)">
+      <img class="admin-cover-preview" id="aCoverPreview" style="display:none" alt="">
+      <div class="admin-row"><button class="admin-btn" onclick="saveCover()">Сохранить</button></div>
+    </div>
+    <div class="admin-card">
+      <h3>Категории товаров</h3>
+      <div id="adminCatList"></div>
+      <div class="admin-row" style="margin-top:8px"><input type="text" id="aNewCatName" placeholder="Новая категория" style="flex:1"><button class="admin-btn green" onclick="addCategory()">Добавить</button></div>
+    </div>
+    <div class="admin-card">
+      <h3>Объявление</h3>
+      <textarea id="aAnnouncement"></textarea>
+      <div class="admin-row"><button class="admin-btn" onclick="saveAnnouncement()">Сохранить</button></div>
+    </div>
+    <div class="admin-card">
+      <h3>Красивый текст</h3>
+      <textarea class="rich" id="aCustomText" placeholder="**жирный**, ссылки"></textarea>
+      <div class="admin-row"><button class="admin-btn" onclick="saveCustomText()">Сохранить</button></div>
+    </div>
+    <div class="admin-card">
+      <h3>Ссылка оплаты СДЭК</h3>
+      <input type="text" id="aSdekUrl" placeholder="https://my.cdek.ru/...">
+      <div class="admin-row"><button class="admin-btn" onclick="saveSdekUrl()">Сохранить</button></div>
+    </div>
+  </div>
+
+  <div class="admin-section" id="tabOrders">
+    <div class="admin-card"><h3>История заказов</h3><div id="adminOrdersList"></div></div>
+  </div>
+  <div class="admin-section" id="tabCustomers">
+    <div class="admin-card"><h3>Клиенты</h3><div id="adminCustomersList"></div></div>
+  </div>
+  <div class="admin-section" id="tabChat">
+    <div class="admin-card"><h3>Чат</h3><div id="adminChatList"></div><button class="admin-btn danger" style="margin-top:10px" onclick="clearChat()">Очистить</button></div>
+  </div>
+  <div class="admin-section" id="tabBackup">
+    <div class="admin-card">
+      <h3>Бэкап</h3>
+      <p style="font-size:13px;color:#86868b;margin-bottom:12px;">Скачать/восстановить все данные магазина</p>
+      <div class="admin-row">
+        <button class="admin-btn" onclick="backupDownload()">&#11015; Скачать</button>
+        <label class="admin-btn green" style="cursor:pointer">&#11014; Восстановить<input type="file" accept=".json" onchange="backupRestore(event)" style="display:none"></label>
+      </div>
+      <div style="margin-top:12px;font-size:13px;color:#86868b" id="backupInfo"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const ADMIN_PASSWORD = 'marketgadget2026';
+const STORAGE_KEY = 'mgData';
+let store = { shopName:'Marketgadget', announcement:'', customText:'', coverUrl:'', sdekUrl:'https://my.cdek.ru/m/lkfl/friend/REF-0M92GUWU', categories:['Одежда','Аксессуары','Для дома'], products:[] };
+
+function loadStore() {
+  try { const d = JSON.parse(localStorage.getItem(STORAGE_KEY)); if (d) { store = { ...store, ...d }; if (!Array.isArray(d.products)) store.products = d.products || store.products; } } catch(e) {}
+}
+function saveStore() { localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); }
+
+function checkPass() {
+  const v = document.getElementById('sellerPass').value;
+  if (v === ADMIN_PASSWORD) {
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('adminPanel').style.display = 'block';
+    openPanel();
+  } else {
+    document.getElementById('loginError').style.display = 'block';
+  }
+}
+
+function logout() {
+  document.getElementById('adminPanel').style.display = 'none';
+  document.getElementById('loginPage').style.display = 'flex';
+  document.getElementById('sellerPass').value = '';
+  document.getElementById('loginError').style.display = 'none';
+}
+
+function openPanel() {
+  loadStore();
+  document.getElementById('aShopName').value = store.shopName;
+  document.getElementById('aAnnouncement').value = store.announcement;
+  document.getElementById('aCustomText').value = store.customText;
+  document.getElementById('aCoverUrl').value = store.coverUrl;
+  document.getElementById('aSdekUrl').value = store.sdekUrl || '';
+  if (store.coverUrl) { document.getElementById('aCoverPreview').src = store.coverUrl; document.getElementById('aCoverPreview').style.display = 'block'; }
+  renderCatDropdown();
+  renderCategories();
+  renderAdminProducts();
+  renderAdminOrders();
+  renderAdminCustomers();
+  renderAdminChat();
+}
+
+function switchTab(id, btn) {
+  document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+function formatPrice(v) { return Number(v).toLocaleString('ru-RU') + ' &#8381;'; }
+function escapeHtml(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// --- Products ---
+function renderAdminProducts() {
+  const el = document.getElementById('adminProductList');
+  if (!store.products.length) { el.innerHTML = '<div style="color:#86868b">Товаров нет</div>'; return; }
+  el.innerHTML = store.products.map(p => {
+    const chars = (p.chars||'').split('\n').filter(Boolean);
+    return '<div style="background:#f5f5f7;border-radius:10px;padding:14px;margin-bottom:10px;">' +
+      '<div class="admin-row">' + (p.emoji && p.emoji.startsWith('data:') ? '<img src="'+p.emoji+'" style="width:40px;height:40px;border-radius:6px;object-fit:cover;flex:none">' : '<span style="font-size:24px;width:40px;text-align:center">'+p.emoji+'</span>') +
+      '<input type="file" accept="image/*" style="flex:none;font-size:12px;width:auto" onchange="uploadImg(event,'+p.id+')">' +
+      '<input style="flex:2" value="'+escapeHtml(p.name)+'" onchange="editProd('+p.id+',\'name\',this.value)">' +
+      '<input class="in-sm" type="number" value="'+p.price+'" onchange="editProd('+p.id+',\'price\',this.value)">' +
+      '<input class="in-sm" type="number" value="'+(p.stock||0)+'" onchange="editProd('+p.id+',\'stock\',this.value)" style="width:60px">' +
+      '<button class="admin-btn danger" onclick="deleteProduct('+p.id+')">&#10005;</button></div>' +
+      '<div class="admin-row" style="margin-top:4px"><input style="flex:1" value="'+escapeHtml(p.desc||'')+'" onchange="editProd('+p.id+',\'desc\',this.value)" placeholder="Описание"></div>' +
+      '<div class="admin-row" style="margin-top:4px"><input style="flex:1" value="'+escapeHtml(p.video||'')+'" onchange="editProd('+p.id+',\'video\',this.value)" placeholder="Видео">' +
+      '<input style="flex:1" value="'+escapeHtml(p.category||'')+'" onchange="editProd('+p.id+',\'category\',this.value)" placeholder="Категория"></div>' +
+      '<div id="chars-'+p.id+'">' + chars.map((c,i) => '<div class="admin-char-item"><input value="'+escapeHtml(c)+'" onchange="editChar('+p.id+','+i+',this.value)"><button onclick="removeChar('+p.id+','+i+')">&#10005;</button></div>').join('') + '</div>' +
+      '<button class="admin-btn outline" style="margin-top:4px;font-size:12px;padding:4px 10px" onclick="addChar('+p.id+')">+ Характеристика</button></div>';
+  }).join('');
+}
+
+function editProd(id, field, val) {
+  const p = store.products.find(x => x.id === id); if (!p) return;
+  if (field==='price'||field==='stock') { const n=parseFloat(val); p[field]=isNaN(n)||n<0?0:n; } else p[field]=val;
+  saveStore();
+}
+function deleteProduct(id) { store.products=store.products.filter(x=>x.id!==id); saveStore(); renderAdminProducts(); }
+function uploadImg(e, id) { const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=function(ev){editProd(id,'emoji',ev.target.result);renderAdminProducts();}; r.readAsDataURL(f); }
+function previewNew(e) { const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=function(ev){document.getElementById('aNewPreview').src=ev.target.result;document.getElementById('aNewPreview').style.display='block';document.getElementById('aNewEmoji').value=ev.target.result;}; r.readAsDataURL(f); }
+function editChar(pid,idx,val) { const p=store.products.find(x=>x.id===pid); if(!p)return; const c=(p.chars||'').split('\n').filter(Boolean); c[idx]=val; p.chars=c.join('\n'); saveStore(); }
+function removeChar(pid,idx) { const p=store.products.find(x=>x.id===pid); if(!p)return; const c=(p.chars||'').split('\n').filter(Boolean); c.splice(idx,1); p.chars=c.join('\n'); saveStore(); renderAdminProducts(); }
+function addChar(pid) { const p=store.products.find(x=>x.id===pid); if(!p)return; const c=(p.chars||'').split('\n').filter(Boolean); c.push(''); p.chars=c.join('\n'); renderAdminProducts(); }
+
+function addProduct() {
+  const name=document.getElementById('aNewName').value.trim(); if(!name){showToast('Введите название');return;}
+  const catCustom=document.getElementById('aNewCatCustom').value.trim();
+  const category=catCustom||document.getElementById('aNewCat').value;
+  if(catCustom&&!(store.categories||[]).includes(catCustom)){store.categories=store.categories||[];store.categories.push(catCustom);}
+  const price=parseFloat(document.getElementById('aNewPrice').value);
+  const stock=parseInt(document.getElementById('aNewStock').value)||0;
+  const newId=store.products.length?Math.max(...store.products.map(p=>p.id))+1:1;
+  store.products.push({id:newId, emoji:document.getElementById('aNewEmoji').value||'&#128230;', name, category, price:isNaN(price)?0:price, stock, desc:document.getElementById('aNewDesc').value.trim(), chars:document.getElementById('aNewChars').value.trim(), video:document.getElementById('aNewVideo').value.trim()});
+  saveStore();
+  ['aNewName','aNewPrice','aNewDesc','aNewChars','aNewVideo','aNewCatCustom','aNewEmoji'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  document.getElementById('aNewStock').value='10';
+  document.getElementById('aNewPreview').style.display='none';
+  renderAdminProducts(); renderCatDropdown(); renderCategories();
+  showToast('Товар добавлен');
+}
+
+// --- Categories ---
+function renderCatDropdown() {
+  const sel=document.getElementById('aNewCat'); if(!sel)return;
+  sel.innerHTML=(store.categories||[]).map(c=>'<option value="'+escapeHtml(c)+'">'+escapeHtml(c)+'</option>').join('');
+}
+function renderCategories() {
+  const el=document.getElementById('adminCatList');
+  const cats=store.categories||[];
+  if(!cats.length){el.innerHTML='<div style="color:#86868b">Нет категорий</div>';return;}
+  el.innerHTML=cats.map((c,i)=>'<div class="admin-char-item"><input value="'+escapeHtml(c)+'" onchange="editCat('+i+',this.value)"><button onclick="removeCat('+i+')">&#10005;</button></div>').join('');
+}
+function editCat(i,v){store.categories[i]=v.trim();saveStore();renderCatDropdown();}
+function removeCat(i){const c=store.categories[i];store.categories.splice(i,1);store.products.forEach(p=>{if(p.category===c)p.category='';});saveStore();renderCategories();renderCatDropdown();renderAdminProducts();}
+function addCategory(){const v=document.getElementById('aNewCatName').value.trim();if(!v){showToast('Введите название');return;}store.categories=store.categories||[];store.categories.push(v);saveStore();document.getElementById('aNewCatName').value='';renderCategories();renderCatDropdown();showToast('Категория добавлена');}
+
+// --- Shop ---
+function saveShopName(){const v=document.getElementById('aShopName').value.trim();if(!v)return;store.shopName=v;saveStore();showToast('Сохранено');}
+function saveCover(){store.coverUrl=document.getElementById('aCoverUrl').value.trim();saveStore();if(store.coverUrl){document.getElementById('aCoverPreview').src=store.coverUrl;document.getElementById('aCoverPreview').style.display='block';}showToast('Сохранено');}
+function uploadCover(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=function(ev){document.getElementById('aCoverUrl').value=ev.target.result;document.getElementById('aCoverPreview').src=ev.target.result;document.getElementById('aCoverPreview').style.display='block';saveCover();};r.readAsDataURL(f);}
+function saveAnnouncement(){store.announcement=document.getElementById('aAnnouncement').value;saveStore();showToast('Сохранено');}
+function saveCustomText(){store.customText=document.getElementById('aCustomText').value;saveStore();showToast('Сохранено');}
+function saveSdekUrl(){store.sdekUrl=document.getElementById('aSdekUrl').value.trim();saveStore();showToast('Сохранено');}
+
+// --- Orders ---
+function renderAdminOrders() {
+  const el=document.getElementById('adminOrdersList');
+  const orders=JSON.parse(localStorage.getItem('mgOrders')||'[]');
+  if(!orders.length){el.innerHTML='<div style="color:#86868b">Нет заказов</div>';return;}
+  el.innerHTML=orders.map(o=>'<div style="background:#f5f5f7;border-radius:8px;padding:10px;margin-bottom:6px;font-size:13px"><b>'+o.id+'</b> — '+new Date(o.date).toLocaleString('ru-RU')+'<br>'+escapeHtml(o.name)+', '+escapeHtml(o.email)+', '+escapeHtml(o.phone)+'<br>'+(o.address?'Адрес: '+escapeHtml(o.address)+'<br>':'')+'Товары: '+(o.items||[]).map(i=>i.name+' x'+i.qty).join(', ')+'<br><b>Итого: '+formatPrice(o.total)+'</b></div>').join('');
+}
+
+// --- Customers ---
+function renderAdminCustomers() {
+  const el=document.getElementById('adminCustomersList');
+  const users=JSON.parse(localStorage.getItem('mgUsers')||'[]');
+  if(!users.length){el.innerHTML='<div style="color:#86868b">Нет клиентов</div>';return;}
+  el.innerHTML=users.map(u=>'<div style="background:#f5f5f7;border-radius:8px;padding:10px;margin-bottom:6px;font-size:13px"><b>'+escapeHtml(u.name)+'</b> ('+escapeHtml(u.email)+', '+escapeHtml(u.phone)+')<br>Заказов: '+(u.orders||[]).length+', с '+new Date(u.regDate).toLocaleDateString('ru-RU')+'</div>').join('');
+}
+
+// --- Chat ---
+function renderAdminChat() {
+  const el=document.getElementById('adminChatList');
+  const h=JSON.parse(localStorage.getItem('mgChatHistory')||'[]');
+  if(!h.length){el.innerHTML='<div style="color:#86868b">Нет сообщений</div>';return;}
+  el.innerHTML=h.map(m=>'<div style="background:#f5f5f7;border-radius:8px;padding:8px 12px;margin-bottom:4px;font-size:14px"><div>'+escapeHtml(m.text)+'</div><div style="font-size:12px;color:#86868b">'+new Date(m.time).toLocaleString('ru-RU')+'</div></div>').join('');
+}
+function clearChat(){if(!confirm('Очистить?'))return;localStorage.removeItem('mgChatHistory');renderAdminChat();showToast('Очищено');}
+
+// --- Backup ---
+function backupDownload() {
+  const data={store, orders:JSON.parse(localStorage.getItem('mgOrders')||'[]'), users:JSON.parse(localStorage.getItem('mgUsers')||'[]'), chat:JSON.parse(localStorage.getItem('mgChatHistory')||'[]'), exportedAt:new Date().toISOString()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='marketgadget-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href);
+}
+function backupRestore(e) {
+  const f=e.target.files[0];if(!f||f.size>1073741824)return;
+  if(!confirm('Восстановление заменит все данные. Продолжить?'))return;
+  const r=new FileReader();r.onload=function(ev){try{const d=JSON.parse(ev.target.result);if(!d.store){showToast('Неверный формат');return;}store=d.store;saveStore();if(d.orders)localStorage.setItem('mgOrders',JSON.stringify(d.orders));if(d.users)localStorage.setItem('mgUsers',JSON.stringify(d.users));if(d.chat)localStorage.setItem('mgChatHistory',JSON.stringify(d.chat));openPanel();document.getElementById('backupInfo').innerHTML='&#10003; Восстановлено: '+d.store.products.length+' товаров, '+(d.orders||[]).length+' заказов, '+(d.users||[]).length+' клиентов';showToast('Восстановлено');}catch(err){showToast('Ошибка: '+err.message);}};r.readAsText(f);e.target.value='';
+}
+
+function showToast(msg) {
+  const t=document.getElementById('toast');t.innerHTML=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2000);
+}
+</script>
+</body>
+</html>
