@@ -104,7 +104,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .chat-input-row { display: flex; border-top: 1px solid #e8e8ed; padding: 8px 10px; gap: 6px; background: #fff; }
 .chat-input-row input { flex: 1; border: 1px solid #d2d2d7; border-radius: 20px; padding: 8px 14px; font-size: 14px; outline: none; }
 .chat-send { background: #007aff; color: #fff; border: none; border-radius: 50%; width: 36px; height: 36px; font-size: 16px; cursor: pointer; flex-shrink: 0; }
-.chat-max { display: flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg,#29b6f6,#0288d1); color: #fff; text-decoration: none; padding: 12px 14px; font-size: 14px; font-weight: 600; border-top: 1px solid rgba(255,255,255,.2); cursor: pointer; }
+.chat-links { display: flex; gap: 8px; padding: 10px; background: #fff; border-top: 1px solid #e8e8ed; }
+.chat-link { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 11px 8px; border-radius: 10px; font-size: 13px; font-weight: 600; text-decoration: none; color: #fff; }
+.chat-link.max { background: linear-gradient(135deg,#667eea,#764ba2); }
+.chat-link.tg { background: linear-gradient(135deg,#29b6f6,#0288d1); }
 .chat-max:hover { opacity: .92; }
 .profile-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 100; }
 .profile-overlay.open { display: block; }
@@ -187,7 +190,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   <div class="chat-header"><h3>Marketgadget — чат</h3><button class="chat-close" onclick="toggleChat()">&times;</button></div>
   <div class="chat-messages" id="chatMessages"><div class="chat-msg bot">Здравствуйте! Чем помочь?<span class="time">только что</span></div></div>
   <div class="chat-input-row"><input type="text" id="chatInput" placeholder="Напишите..." onkeydown="if(event.key==='Enter') sendChat()"><button class="chat-send" onclick="sendChat()">&#10148;</button></div>
-  <a class="chat-max" href="https://t.me/+xtHRz1HFjV8yMjQy" target="_blank" rel="noopener">&#128172; Продолжить в Telegram</a>
+  <div class="chat-links">
+    <a class="chat-link tg" href="https://t.me/+xtHRz1HFjV8yMjQy" target="_blank" rel="noopener">&#128172; Telegram</a>
+    <a class="chat-link max" href="https://max.ru/join/auqAQHh2cDEtCZebIXZ5ZYMax_t-UuNTQTd5XK5XhK8" target="_blank" rel="noopener">&#128172; MAX</a>
+  </div>
 </div>
 <button class="chat-btn" onclick="toggleChat()">&#128172;</button>
 
