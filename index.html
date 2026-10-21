@@ -4,6 +4,26 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Marketgadget</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCAwbYDN-Dwbp-mdUseC6SPZikWHSvXMH4",
+  authDomain: "marketgadget-50942.firebaseapp.com",
+  databaseURL: "https://marketgadget-50942-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "marketgadget-50942",
+  storageBucket: "marketgadget-50942.firebasestorage.app",
+  messagingSenderId: "811175854494",
+  appId: "1:811175854494:web:333206359fa8c68ba3568f",
+  measurementId: "G-55P6K4FLS6"
+};
+let fbApp = null, fbDB = null;
+try {
+  fbApp = firebase.initializeApp(firebaseConfig);
+  fbDB = firebase.database(fbApp);
+  console.log('Firebase connected');
+} catch(e) { console.log('Firebase init failed:', e); }
+</script>
 <!-- Yandex.Metrika informer -->
 <a href="https://metrika.yandex.ru/stat/?id=112677400&amp;from=informer" target="_blank" rel="nofollow">
     <img src="https://metrika-informer.com/informer/112677400/3_1_FFFFFFFF_EFEFEFFF_0_pageviews"
@@ -353,37 +373,69 @@ function submitOrder() {
   showToast('Заказ оформлен!');
 }
 
-// --- Chat ---
+// --- Chat (Firebase realtime) ---
+let chatBusy = false;
 function toggleChat() {
   const w = document.getElementById('chatWindow');
   const willOpen = !w.classList.contains('open');
   w.classList.toggle('open');
-  if (willOpen) loadChatHistory();
+  if (willOpen) {
+    loadChatHistory();
+    // listen for new messages
+    if (fbDB && window.fbListenerSet !== true) {
+      window.fbListenerSet = true;
+      fbDB.ref('chat').orderByChild('ts').limitToLast(100).on('value', function(snap){
+        if (chatBusy) return;
+        const msgs = document.getElementById('chatMessages');
+        const all = snap.val();
+        if (!all) return;
+        const arr = Object.keys(all).map(k => all[k]).sort((a,b) => a.ts - b.ts);
+        msgs.innerHTML = arr.map(m => {
+          const cls = m.seller ? 'bot' : 'user';
+          const who = m.seller ? 'Продавец' : 'Вы';
+          return '<div class="chat-msg ' + cls + '">' + escapeHtml(m.text) + '<span class="time">' + who + ' · ' + new Date(m.ts).toLocaleTimeString('ru-RU', {hour:'2-digit',minute:'2-digit'}) + '</span></div>';
+        }).join('');
+        msgs.scrollTop = msgs.scrollHeight;
+      });
+    }
+  }
 }
 function loadChatHistory() {
   const msgs = document.getElementById('chatMessages');
-  const history = JSON.parse(localStorage.getItem('mgChatHistory') || '[]');
-  if (!history.length) { msgs.innerHTML = '<div class="chat-msg bot">Здравствуйте! Чем помочь?<span class="time">только что</span></div>'; return; }
-  msgs.innerHTML = history.map(m => {
-    const cls = m.seller ? 'bot' : 'user';
-    const who = m.seller ? 'Продавец' : 'Вы';
-    return '<div class="chat-msg ' + cls + '">' + escapeHtml(m.text) + '<span class="time">' + who + ' · ' + new Date(m.time).toLocaleTimeString('ru-RU', {hour:'2-digit',minute:'2-digit'}) + '</span></div>';
-  }).join('');
-  msgs.scrollTop = msgs.scrollHeight;
+  if (!fbDB) {
+    const history = JSON.parse(localStorage.getItem('mgChatHistory') || '[]');
+    msgs.innerHTML = history.length ? history.map(m => { const cls = m.seller ? 'bot' : 'user'; return '<div class="chat-msg ' + cls + '">' + escapeHtml(m.text) + '<span class="time">' + (m.seller ? 'Продавец' : 'Вы') + ' · ' + new Date(m.time).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}) + '</span></div>'; }).join('') : '<div class="chat-msg bot">Здравствуйте! Чем помочь?<span class="time">только что</span></div>';
+    msgs.scrollTop = msgs.scrollHeight;
+    return;
+  }
+  // Firebase will populate via listener
+  msgs.innerHTML = '<div class="chat-msg bot">Загрузка чата...</div>';
+  fbDB.ref('chat').orderByChild('ts').limitToLast(100).once('value', function(snap){
+    const all = snap.val();
+    if (!all) { msgs.innerHTML = '<div class="chat-msg bot">Здравствуйте! Чем помочь?<span class="time">только что</span></div>'; return; }
+    const arr = Object.keys(all).map(k => all[k]).sort((a,b) => a.ts - b.ts);
+    msgs.innerHTML = arr.map(m => {
+      const cls = m.seller ? 'bot' : 'user';
+      const who = m.seller ? 'Продавец' : 'Вы';
+      return '<div class="chat-msg ' + cls + '">' + escapeHtml(m.text) + '<span class="time">' + who + ' · ' + new Date(m.ts).toLocaleTimeString('ru-RU', {hour:'2-digit',minute:'2-digit'}) + '</span></div>';
+    }).join('');
+    msgs.scrollTop = msgs.scrollHeight;
+  });
 }
 function sendChat() {
   const input = document.getElementById('chatInput'); const text = input.value.trim();
   if (!text) return; input.value = '';
+  if (fbDB) {
+    fbDB.ref('chat').push({ text, ts: Date.now(), seller: false, from: 'customer' });
+    return;
+  }
+  // fallback localStorage
   const msgs = document.getElementById('chatMessages');
-  const now = new Date().toLocaleTimeString('ru-RU', {hour:'2-digit',minute:'2-digit'});
-  msgs.insertAdjacentHTML('beforeend', '<div class="chat-msg user">' + escapeHtml(text) + '<span class="time">Вы · ' + now + '</span></div>');
+  msgs.insertAdjacentHTML('beforeend', '<div class="chat-msg user">' + escapeHtml(text) + '<span class="time">Вы · ' + new Date().toLocaleTimeString('ru-RU', {hour:'2-digit',minute:'2-digit'}) + '</span></div>');
   const history = JSON.parse(localStorage.getItem('mgChatHistory') || '[]');
   history.push({text, time: new Date().toISOString(), seller:false});
   localStorage.setItem('mgChatHistory', JSON.stringify(history));
-  setTimeout(() => {
-    msgs.insertAdjacentHTML('beforeend', '<div class="chat-msg bot">Спасибо, сообщение передано продавцу! Он ответит в ближайшее время.<span class="time">Продавец · ' + new Date().toLocaleTimeString('ru-RU', {hour:'2-digit',minute:'2-digit'}) + '</span></div>');
-    msgs.scrollTop = msgs.scrollHeight;
-  }, 600);
+  setTimeout(() => { msgs.insertAdjacentHTML('beforeend', '<div class="chat-msg bot">Спасибо, сообщение передано продавцу!<span class="time">Продавец · ' + new Date().toLocaleTimeString('ru-RU', {hour:'2-digit',minute:'2-digit'}) + '</span></div>'); msgs.scrollTop = msgs.scrollHeight; }, 600);
   msgs.scrollTop = msgs.scrollHeight;
 }
 
